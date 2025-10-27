@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.meta.xr.mrutilitykit": "78.0.0",
     "com.meta.xr.sdk.audio": "78.0.0",
     "com.meta.xr.sdk.core": "78.0.0",
