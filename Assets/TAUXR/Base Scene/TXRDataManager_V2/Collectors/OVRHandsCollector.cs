@@ -3,9 +3,9 @@
 // Logs status, root pose, scale, confidences, per-finger confidences, timestamps, and bone arrays.
 
 using System;
+using UnityEngine;
 using static OVRPlugin;   // HandState, Skeleton, Posef, Hand, Step
 using static TXRData.CollectorUtils;
-
 namespace TXRData
 {
     public sealed class OVRHandsCollector : IContinuousCollector
@@ -50,7 +50,12 @@ namespace TXRData
             if (!_includeHands) return;
 
             // Use the same count the schema was built with
-            _handBoneCount = SchemaFactories.BuildContinuousDataV2(options).handBones;
+            _handBoneCount = SchemaFactories.DetectHandBoneCount(out bool handDetectionOk);
+            if (!handDetectionOk)
+            {
+                Debug.LogError($"[OVRHandsCollector] Hand bone count detection failed. No hand bones will be outputted, defaulting to 0 bones.");
+                _handBoneCount = 0;
+            }
 
             _leftCols = CacheHandIndices(schema, "Left");
             _rightCols = CacheHandIndices(schema, "Right");
@@ -71,6 +76,12 @@ namespace TXRData
         private HandCols CacheHandIndices(ColumnIndex schema, string side)
         {
             HandCols cols = new HandCols();
+
+            string[] handBoneNames = SchemaFactories.GetHandBonesNames(out bool handBoneNamesOk);
+            if (!handBoneNamesOk || handBoneNames.Length != _handBoneCount)
+            {
+                Debug.LogError($"[SchemaFactories] Hand bone names detection failed or count mismatch. Detected count: {_handBoneCount}, Names count: {handBoneNames.Length}");
+            }
 
             cols.Status = IndexOrMinusOne(schema, $"{side}Hand_Status");
 
@@ -105,15 +116,15 @@ namespace TXRData
 
             for (int i = 0; i < _handBoneCount; i++)
             {
-                string idx = i.ToString("D2");
-                cols.BonePosX[i] = IndexOrMinusOne(schema, $"{side}Hand_BonePos_{idx}_x");
-                cols.BonePosY[i] = IndexOrMinusOne(schema, $"{side}Hand_BonePos_{idx}_y");
-                cols.BonePosZ[i] = IndexOrMinusOne(schema, $"{side}Hand_BonePos_{idx}_z");
+                string boneName = handBoneNames[i];
+                cols.BonePosX[i] = IndexOrMinusOne(schema, $"{side}_{boneName}_x");
+                cols.BonePosY[i] = IndexOrMinusOne(schema, $"{side}_{boneName}_y");
+                cols.BonePosZ[i] = IndexOrMinusOne(schema, $"{side}_{boneName}_z");
 
-                cols.BoneQx[i] = IndexOrMinusOne(schema, $"{side}Hand_BoneRot_{idx}_qx");
-                cols.BoneQy[i] = IndexOrMinusOne(schema, $"{side}Hand_BoneRot_{idx}_qy");
-                cols.BoneQz[i] = IndexOrMinusOne(schema, $"{side}Hand_BoneRot_{idx}_qz");
-                cols.BoneQw[i] = IndexOrMinusOne(schema, $"{side}Hand_BoneRot_{idx}_qw");
+                cols.BoneQx[i] = IndexOrMinusOne(schema, $"{side}_{boneName}_qx");
+                cols.BoneQy[i] = IndexOrMinusOne(schema, $"{side}_{boneName}_qy");
+                cols.BoneQz[i] = IndexOrMinusOne(schema, $"{side}_{boneName}_qz");
+                cols.BoneQw[i] = IndexOrMinusOne(schema, $"{side}_{boneName}_qw");
             }
 
             return cols;

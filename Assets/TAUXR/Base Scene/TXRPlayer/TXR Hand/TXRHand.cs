@@ -1,6 +1,4 @@
-using Cysharp.Threading.Tasks;
 using DG.Tweening;
-using NaughtyAttributes;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -25,9 +23,9 @@ public class TXRHand : MonoBehaviour
     [SerializeField] private PinchingConfiguration _pinchingConfiguration;
 
     public SkinnedMeshRenderer _handSMR;
-    Tween _visibilityTween;
-    Sequence _pinchVisibilitySequence;
-    Sequence _pinchColorSequence;
+    private Tween _visibilityTween;
+    private Sequence _pinchVisibilitySequence;
+    private Sequence _pinchColorSequence;
 
     public void Init()
     {
@@ -100,7 +98,6 @@ public class TXRHand : MonoBehaviour
         {
             case FingerType.Thumb:
                 _handSMR.material.DOColor(color, "_Thumb_Color", .25f); break;
-                break;
             case FingerType.Index:
                 _handSMR.material.DOColor(color, "_Index_Color", .25f); break;
             default: break;
@@ -113,7 +110,6 @@ public class TXRHand : MonoBehaviour
         {
             case FingerType.Thumb:
                 _handSMR.material.DOFade(strength, "_Thumb_Multiplier", .25f); break;
-                break;
             case FingerType.Index:
                 _handSMR.material.DOFade(strength, "_Index_Multiplier", .25f); break;
             default: break;

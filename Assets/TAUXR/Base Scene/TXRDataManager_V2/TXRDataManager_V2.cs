@@ -91,6 +91,7 @@ namespace TXRData
             //Moved To Start() 
 
             // 4) Build schemas
+
             var cont = SchemaFactories.BuildContinuousDataV2(recordingOptions);  // (schema, counts, flags)
             _continuousSchema = cont.schema;
 
@@ -122,7 +123,7 @@ namespace TXRData
                 recordingOptions.customTransformsToRecord.Count > 0)
                 _continuousCollectors.Add(new CustomTransformsCollector());
 
-            foreach (var c in _continuousCollectors)
+            foreach (IContinuousCollector c in _continuousCollectors)
                 c.Configure(_continuousSchema, recordingOptions);
 
             if (recordFaceExpressions)

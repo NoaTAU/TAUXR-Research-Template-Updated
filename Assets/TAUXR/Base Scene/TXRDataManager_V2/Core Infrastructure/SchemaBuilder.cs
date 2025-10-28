@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;                  // Debug.LogWarning
 using static OVRPlugin;             // runtime skeleton detection
 
@@ -76,7 +77,7 @@ namespace TXRData
         }
     }
 
-    // Options that control what goes into the ContinuousData schema (exposed in your DataManager inspector).
+    // Options that control what goes into the ContinuousData schema (exposed in DataManager inspector).
     [Serializable]
     public sealed class RecordingOptions
     {
@@ -96,30 +97,35 @@ namespace TXRData
     {
         // --------- Runtime detection helpers ---------
 
-        private static int DetectHandBoneCount(out bool success)
+        public static int DetectHandBoneCount(out bool success)
         {
             success = false;
-            try
+
+            OVRHandSkeletonVersion handSkeletonVersion = OVRRuntimeSettings.Instance.HandSkeletonVersion;
+
+            if (handSkeletonVersion == OVRHandSkeletonVersion.OpenXR)
             {
-                if (GetSkeleton(SkeletonType.HandLeft, out Skeleton skel) && skel.NumBones > 0)
-                {
-                    success = true;
-                    return (int)skel.NumBones;
-                }
+                // OpenXR hands path
+                success = true;
+                return (int)OVRPlugin.SkeletonConstants.MaxXRHandBones; // TODO should we use getskeleton2 instead? has bones[] array
             }
-            catch (Exception e)
+            else if (handSkeletonVersion == OVRHandSkeletonVersion.OVR)
             {
-                Debug.LogWarning($"[SchemaFactories] Hand skeleton detection failed: {e.Message}");
+                // OVR hands path
+                success = true;
+                return (int)OVRPlugin.SkeletonConstants.MaxHandBones;
             }
-            return (int)SkeletonConstants.MaxHandBones; // safe fallback (may over-provision)
+
+            return 0;
         }
 
-        private static int DetectBodyJointCount(out bool success)
+        public static int DetectBodyJointCount(out bool success)
         {
             success = false;
             try
             {
-                if (GetSkeleton(SkeletonType.Body, out Skeleton skel) && skel.NumBones > 0)
+                Skeleton2 skel = new Skeleton2();
+                if (GetSkeleton2(SkeletonType.Body, ref skel) && skel.NumBones > 0)
                 {
                     success = true;
                     return (int)skel.NumBones;
@@ -129,7 +135,59 @@ namespace TXRData
             {
                 Debug.LogWarning($"[SchemaFactories] Body skeleton detection failed: {e.Message}");
             }
+            Debug.LogWarning("[SchemaFactories] Body skeleton detection failed, defaulting to SkeletonConstants.MaxBodyBones.");
             return (int)SkeletonConstants.MaxBodyBones; // safe fallback (may over-provision)
+        }
+
+        public static string[] GetHandBonesNames(out bool success)
+        {
+            success = false;
+            OVRHandSkeletonVersion handSkeletonVersion = OVRRuntimeSettings.Instance.HandSkeletonVersion;
+
+            // Get all enum values of BoneId
+            string[] allNames = Enum.GetNames(typeof(BoneId));
+
+            if (handSkeletonVersion == OVRHandSkeletonVersion.OpenXR)
+            {
+                // Filter for only XRHand bones
+                // Exactly the 26 XR joints (excluding Start/Max/End)
+                string[] xrHandNames = allNames
+                    .Where(n => n.StartsWith("XRHand_"))
+                    .Where(n => n != nameof(BoneId.XRHand_Start) &&
+                                n != nameof(BoneId.XRHand_Max) &&
+                                n != nameof(BoneId.XRHand_End))
+                    .ToArray();
+
+                success = xrHandNames.Length == 26;
+                return xrHandNames;
+            }
+            else if (handSkeletonVersion == OVRHandSkeletonVersion.OVR)
+            {
+                // Filter for only OVR bones
+                string[] ovrAllHandNames = allNames
+                    .Where(n => n.StartsWith("Hand_"))
+                    .Where(n => n != nameof(BoneId.Hand_Start) &&
+                                n != nameof(BoneId.Hand_MaxSkinnable) &&
+                                n != nameof(BoneId.Hand_End))
+                    .ToArray();
+                success = ovrAllHandNames.Length > 0;
+                return ovrAllHandNames;
+            }
+            return Array.Empty<string>();
+        }
+
+        public static string[] GetBodyJointNames()
+        {
+            // Get all enum values of BoneId
+            string[] allNames = Enum.GetNames(typeof(BoneId));
+
+            // Filter for only FullBody joints
+            string[] bodyJointNames = allNames
+                .Where(n => n.StartsWith("Body"))
+                .Where(n => n != nameof(BoneId.Body_Start) &&
+                            n != nameof(BoneId.Body_End))
+                .ToArray();
+            return bodyJointNames;
         }
 
         // --------- Schema builders ---------
@@ -217,6 +275,12 @@ namespace TXRData
             // Hands (skeleton arrays)
             if (recordingOptions.includeHands)
             {
+                string[] handBoneNames = GetHandBonesNames(out bool handBoneNamesOk);
+                if (!handBoneNamesOk || handBoneNames.Length != detectedHandBoneCount)
+                {
+                    Debug.LogError($"[SchemaFactories] Hand bone names detection failed or count mismatch. Detected count: {detectedHandBoneCount}, Names count: {handBoneNames.Length}");
+                }
+
                 foreach (string side in new[] { "Left", "Right" })
                 {
                     schemaBuilder.Add($"{side}Hand_Status");
@@ -236,9 +300,11 @@ namespace TXRData
 
                     for (int boneIndex = 0; boneIndex < detectedHandBoneCount; boneIndex++)
                     {
-                        string zeroPadded = boneIndex.ToString("D2");
-                        schemaBuilder.AddMany($"{side}Hand_BonePos_{zeroPadded}", new[] { "x", "y", "z" });
-                        schemaBuilder.AddMany($"{side}Hand_BoneRot_{zeroPadded}", new[] { "qx", "qy", "qz", "qw" });
+
+                        string boneName = handBoneNames[boneIndex];
+                        schemaBuilder.AddMany($"{side}_{boneName}", new[] { "x", "y", "z" });
+                        schemaBuilder.AddMany($"{side}_{boneName}", new[] { "qx", "qy", "qz", "qw" });
+
                     }
                 }
             }
@@ -252,12 +318,21 @@ namespace TXRData
                 schemaBuilder.Add("Body_CalibrationStatus");
                 schemaBuilder.Add("Body_SkeletonChangedCount");
 
+                string[] bodyJointNames = GetBodyJointNames();
+                if (bodyJointNames.Length != detectedBodyJointCount)
+                {
+                    Debug.LogError($"[SchemaFactories] Body joint names count mismatch. Detected count: {detectedBodyJointCount}, Names count: {bodyJointNames.Length}");
+                }
+
                 for (int jointIndex = 0; jointIndex < detectedBodyJointCount; jointIndex++)
                 {
-                    string zeroPadded = jointIndex.ToString("D2");
-                    schemaBuilder.AddMany($"Body_Joint_{zeroPadded}", new[] { "px", "py", "pz" });
-                    schemaBuilder.AddMany($"Body_Joint_{zeroPadded}", new[] { "qx", "qy", "qz", "qw" });
-                    schemaBuilder.Add($"Body_Joint_{zeroPadded}_Flags");
+                    if (jointIndex < bodyJointNames.Length)
+                    {
+                        string jointName = bodyJointNames[jointIndex];
+                        schemaBuilder.AddMany($"{jointName}", new[] { "px", "py", "pz" });
+                        schemaBuilder.AddMany($"{jointName}", new[] { "qx", "qy", "qz", "qw" });
+                        schemaBuilder.Add($"{jointName}_Flags");
+                    }
                 }
             }
 

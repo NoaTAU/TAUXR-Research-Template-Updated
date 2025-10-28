@@ -2230,7 +2230,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3218453330121799869, guid: 4cba690ca96e6b14fae904cb9db7120b, type: 3}
       propertyPath: saveFilePath
-      value: 
+      value: D:\Data Manager V2 files\Test Data From Editor\27.10-xrHands2
       objectReference: {fileID: 0}
     - target: {fileID: 3218453330121799869, guid: 4cba690ca96e6b14fae904cb9db7120b, type: 3}
       propertyPath: exportInEditor
@@ -2242,7 +2242,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5715946916250606740, guid: 4cba690ca96e6b14fae904cb9db7120b, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -1,25 +1,26 @@
-using UnityEditor;
-using UnityEngine;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class TXRSceneManager : TXRSingleton<TXRSceneManager>
 {
     // declare by name each scene and make it public so it can be accessed easily from other scripts.
-    [Header("Base Scene Index")] [SerializeField]
+    [Header("Base Scene Index")]
+    [SerializeField]
     public int BaseSceneIndex = 0;
 
-    [Header("Build index of the first scene to load")] [SerializeField]
+    [Header("Build index of the first scene to load")]
+    [SerializeField]
     public int FirstSceneToLoadIndex = 1;
 
     private float FADETOBLACKDURATION = 2.5f;
     private float FADETOCLEARDURATION = 1.5f;
 
-    string _baseSceneName;
+    private string _baseSceneName;
     private string currentSceneName;
     public string CurrentSceneName => currentSceneName;
 
-    bool _shouldRepositionPlayer;
+    private bool _shouldRepositionPlayer;
 
     // gets isProjectUsingCalibration to know whether to use PlayerRepositioner or not.
     public void Init(bool isProjectUsingCalibration)
@@ -136,7 +137,7 @@ public class TXRSceneManager : TXRSingleton<TXRSceneManager>
         // if project is being calibrated to a space then moving it to a PlayerRepositioner will ruin calibration.
         if (!_shouldRepositionPlayer) return;
 
-        PlayerRepositioner repositioner = FindObjectOfType<PlayerRepositioner>();
+        PlayerRepositioner repositioner = FindFirstObjectByType<PlayerRepositioner>();
         if (repositioner == null) return;
         TXRPlayer.Instance.RepositionPlayer(repositioner);
     }

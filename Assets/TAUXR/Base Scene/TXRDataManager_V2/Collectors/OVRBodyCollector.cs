@@ -2,9 +2,9 @@
 // Collects body tracking data (frame-level fields + per-joint pose/flags) via OVRPlugin.GetBodyState4.
 
 using System;
+using UnityEngine;
 using static OVRPlugin;   // BodyState, BodyJointLocation, BodyJointSet, Step, Vector3f, Quatf
 using static TXRData.CollectorUtils;
-
 namespace TXRData
 {
     public sealed class OVRBodyCollector : IContinuousCollector
@@ -37,7 +37,8 @@ namespace TXRData
             if (!_includeBody) return;
 
             // Match the body joint count used by SchemaBuilder
-            (_, _, _, _jointCount, _) = SchemaFactories.BuildContinuousDataV2(options);
+            _jointCount = SchemaFactories.DetectBodyJointCount(out bool bodyDetectionOk);
+
 
             // Root/body state indices
             TryIndex(schema, "Body_Time", out _idxBodyTime);
@@ -58,20 +59,30 @@ namespace TXRData
 
             _idxFlags = new int[_jointCount];
 
-            for (int j = 0; j < _jointCount; j++)
+            string[] bodyJointNames = SchemaFactories.GetBodyJointNames();
+            if (bodyJointNames.Length != _jointCount)
             {
-                string jj = j.ToString("D2");
-                _idxPosX[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_px");
-                _idxPosY[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_py");
-                _idxPosZ[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_pz");
-
-                _idxQx[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_qx");
-                _idxQy[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_qy");
-                _idxQz[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_qz");
-                _idxQw[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_qw");
-
-                _idxFlags[j] = IndexOrMinusOne(schema, $"Body_Joint_{jj}_Flags");
+                Debug.LogError($"[OVRBodyCollector] Body joint names count mismatch. Detected count: {_jointCount}, Names count: {bodyJointNames.Length}");
             }
+
+            for (int jointIndex = 0; jointIndex < _jointCount; jointIndex++)
+            {
+                if (jointIndex < bodyJointNames.Length)
+                {
+                    string jointName = bodyJointNames[jointIndex];
+                    _idxPosX[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_px");
+                    _idxPosY[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_py");
+                    _idxPosZ[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_pz");
+
+                    _idxQx[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_qx");
+                    _idxQy[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_qy");
+                    _idxQz[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_qz");
+                    _idxQw[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_qw");
+
+                    _idxFlags[jointIndex] = IndexOrMinusOne(schema, $"{jointName}_Flags");
+                }
+            }
+
         }
 
         public void Collect(RowBuffer row, float timeSinceStartup)
