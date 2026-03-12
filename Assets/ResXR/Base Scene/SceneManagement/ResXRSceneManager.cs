@@ -69,10 +69,10 @@ public class ResXRSceneManager : ResXRSingleton<ResXRSceneManager>
 
     private void InitializeInBuild()
     {
-        ResXRPlayer.Instance.FadeViewToColor(Color.black, 0).Forget();
         currentSceneName = _baseSceneName;
-        // make sure to launch your starting scene here
-        LoadActiveScene(FirstSceneToLoadIndex).Forget();
+        // Menu-only flow: no initial scene load, so no fade to black (build matches editor).
+        // To auto-load a first scene on build, uncomment below and add: ResXRPlayer.Instance.FadeViewToColor(Color.black, 0).Forget(); before it.
+        //LoadActiveScene(FirstSceneToLoadIndex).Forget();
     }
 
     async private UniTask LoadActiveScene(int sceneBuildIndex)
@@ -93,7 +93,7 @@ public class ResXRSceneManager : ResXRSingleton<ResXRSceneManager>
         await ResXRPlayer.Instance.FadeViewToColor(Color.clear, FADETOCLEARDURATION);
     }
 
-    async private UniTask LoadActiveScene(string sceneName)
+    async public UniTask LoadActiveScene(string sceneName)
     {
         if (currentSceneName == sceneName)
         {
@@ -124,11 +124,13 @@ public class ResXRSceneManager : ResXRSingleton<ResXRSceneManager>
         await LoadActiveScene(sceneName);
     }
 
-    async private UniTask UnloadActiveScene()
+    async public UniTask UnloadActiveScene()
     {
         await ResXRPlayer.Instance.FadeViewToColor(Color.black, FADETOBLACKDURATION);
-
+        Debug.Log($"[ResXRSceneManager] Unloading scene: {currentSceneName}...");
         await SceneManager.UnloadSceneAsync(currentSceneName);
+
+        currentSceneName = _baseSceneName;
     }
 
 
